@@ -571,15 +571,15 @@ function setupTeamDetails() {
 async function setupUpcomingGames() {
     let gamesWithoutScores = mrdaLinearRegressionSystem.mrdaGames.filter(game => !(game.homeTeamId in game.scores) || !(game.awayTeamId in game.scores));
 
-    new DataTable('#upcoming-games-table', {
+    let upcomingGamesTable = new DataTable('#upcoming-games-table', {
         columns: [
             { data: 'event.startDt', visible: false },
             { data: 'date', visible: false },
-            { data: 'homeTeam.name', width: '30em', className: 'dt-right', render: function(data, type, game) {return `${data}<div class="team-rp">${game.homeTeam.getRankingPoints(game.date)}</div>`; } },
+            { data: 'homeTeam.name', width: '30em', className: 'dt-right', render: function(data, type, game) {return `${data}<div class="team-rp">${game.homeTeam.getRankingPoints(game.date) ?? '&nbsp;'}</div>`; } },
             { data: 'homeTeam.logo', width: '1em', render: function(data, type, full) {return `<img class="team-logo" class="ms-2" src="${data}">`; } },
-            { width: '1em', className: 'dt-center',  render: function(data, type, game) { return game.expectedRatios[game.homeTeamId] > 1 ? `${game.expectedRatios[game.homeTeamId].toFixed(2)} : 1` : `1 : ${game.expectedRatios[game.awayTeamId].toFixed(2)}` } },
+            { width: '1em', className: 'dt-center',  render: function(data, type, game) { return game.homeTeamId in game.expectedRatios && game.awayTeamId in game.expectedRatios ? game.expectedRatios[game.homeTeamId] > 1 ? `${game.expectedRatios[game.homeTeamId].toFixed(2)} : 1` : `1 : ${game.expectedRatios[game.awayTeamId].toFixed(2)}` : '' } },
             { data: 'awayTeam.logo', width: '1em', render: function(data, type, full) {return `<img class="team-logo" class="ms-2" src="${data}">`; } },                
-            { data: 'awayTeam.name', width: '30em', render: function(data, type, game) {return `${data}<div class="team-rp">${game.awayTeam.getRankingPoints(game.date)}</div>`; }  },
+            { data: 'awayTeam.name', width: '30em', render: function(data, type, game) {return `${data}<div class="team-rp">${game.awayTeam.getRankingPoints(game.date) ?? '&nbsp;'}</div>`; }  },
         ],
         data: gamesWithoutScores,
         rowGroup: {
@@ -591,6 +591,23 @@ async function setupUpcomingGames() {
         ordering: {
             handler: false
         },
+    });
+
+    $('#upcoming-games-container').on('click', '#upcoming-games-table tr:not(.dtrg-group)', function (e) {
+        let tr = e.target.closest('tr');
+        let row = upcomingGamesTable.row(tr);
+        let clickedGame = row.data();
+        let homeRp = clickedGame.homeTeam.getRankingPoints(clickedGame.date);
+        let awayRp = clickedGame.awayTeam.getRankingPoints(clickedGame.date);
+        if (!homeRp || !awayRp)
+            return;
+        $('#predictor-home').val(homeRp > awayRp ? clickedGame.homeTeamId : clickedGame.awayTeamId);
+        $('#predictor-away').val(homeRp > awayRp ? clickedGame.awayTeamId : clickedGame.homeTeamId);
+        let $predictorDate = $('#predictor-date');
+        $predictorDate[0].valueAsDate = clickedGame.date;
+        $predictorDate.trigger("change"); 
+        $('#upcoming-games-modal').modal('hide');
+        $('#predictor-modal').modal('show');
     });
 }
 
