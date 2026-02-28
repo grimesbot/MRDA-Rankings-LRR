@@ -634,7 +634,7 @@ async function populatePredictorChart(date, homeTeam, awayTeam, predictorChart, 
     );
     
     try {
-        let response = await fetch('https://grimesbot.pythonanywhere.com/ratio-predict-game-alt', {
+        let response = await fetch('https://grimesbot.pythonanywhere.com/predict-game-lrr', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

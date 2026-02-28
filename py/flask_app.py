@@ -3,13 +3,18 @@ from flask_cors import CORS
 import statsmodels.api as sm
 import math
 
+app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": [
+    "http://localhost",
+    "http://127.0.0.1",
+    "null",
+    "https://grimesbot.github.io"
+]}})
+
 RATIO_CAP = 4
 RANKING_SCALE = 100
 
-app = Flask(__name__)
-CORS(app)
-
-def linear_regression_ratio(games, seeding):
+def linear_regression_ratio(games, seeding, bugfix=True):
     result = {}
 
     team_ids = []
@@ -51,7 +56,10 @@ def linear_regression_ratio(games, seeding):
         score_ratio = home_score/away_score if home_score > away_score else away_score/home_score
 
         # Set game weight
-        W.append(max(3 ** ((RATIO_CAP - score_ratio)/2), 1/1000000) if score_ratio > RATIO_CAP else 1)
+        if bugfix:
+            W.append(max(2 * score_ratio ** (-1/2), 1/1000000) if score_ratio > RATIO_CAP else 1)
+        else:
+            W.append(max(3 ** ((RATIO_CAP - score_ratio)/2), 1/1000000) if score_ratio > RATIO_CAP else 1)
 
     # Add virtual games if we have seeding
     if seeding is not None:
@@ -83,8 +91,8 @@ def linear_regression_ratio(games, seeding):
 
     return result
 
-@app.route("/ratio-predict-game", methods=["POST"])
-def mock_game():
+@app.route("/predict-game-lrr", methods=["POST"])
+def predict_game_lrr():
     data = request.json
     home_team = data.get("th")
     away_team = data.get("ta")
