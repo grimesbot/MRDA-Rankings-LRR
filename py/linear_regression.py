@@ -26,14 +26,14 @@ def linear_regression(games, seeding_team_rankings=None):
 
     result = {}
 
+    if len(games) == 0:
+        result
+
     linear_regression_result = next((lrr for lrr in linear_regression_results if lrr["games"] == games and lrr["seeding"] == seeding_team_rankings), None)
     if (linear_regression_result is not None):
         for cache_result in linear_regression_result["result"]:
             result[cache_result["team_id"]] = TeamRanking(mrda_teams[cache_result["team_id"]], cache_result["ranking_points"], cache_result["standard_error"])
         return result
-
-    if len(games) == 0:
-        result
 
     team_ids = []
     for game in games:
