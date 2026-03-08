@@ -439,7 +439,7 @@ function setupTeamDetails() {
                 th.colSpan = 3;
                 th.className = 'rp-change';
 
-                let rpBefore = team.getRankingPoints(group.startDt);
+                let rpBefore = team.getPredictorRankingPoints(group.startDt);
                 let rpAfter = team.getRankingPoints(group.endDt, true);
 
                 if (rpBefore && rpAfter) {
@@ -597,8 +597,8 @@ async function setupUpcomingGames() {
         let tr = e.target.closest('tr');
         let row = upcomingGamesTable.row(tr);
         let clickedGame = row.data();
-        let homeRp = clickedGame.homeTeam.getRankingPoints(clickedGame.date);
-        let awayRp = clickedGame.awayTeam.getRankingPoints(clickedGame.date);
+        let homeRp = clickedGame.homeTeam.getPredictorRankingPoints(clickedGame.date);
+        let awayRp = clickedGame.awayTeam.getPredictorRankingPoints(clickedGame.date);
         if (!homeRp || !awayRp)
             return;
         $('#predictor-home').val(homeRp > awayRp ? clickedGame.homeTeamId : clickedGame.awayTeamId);
@@ -672,7 +672,6 @@ function predictGame(predictorChart, $loadingOverlay) {
     predictorChart.update();
 
     let date = $('#predictor-date')[0].valueAsDate;
-    let ranking = mrdaLinearRegressionSystem.getRankingHistory(date);
 
     let homeTeam = mrdaLinearRegressionSystem.mrdaTeams[$('#predictor-home').val()];
     let awayTeam = mrdaLinearRegressionSystem.mrdaTeams[$('#predictor-away').val()];
@@ -682,21 +681,19 @@ function predictGame(predictorChart, $loadingOverlay) {
 
     if (homeTeam) {
         $('#predictor-home-logo').attr('src',homeTeam.logo);
-        let homeRanking = ranking[homeTeam.teamId];
-        if (homeRanking && homeRanking.rankingPoints) {
-            homeRp = homeRanking.rankingPoints;
-            $('#predictor-home-rp').text(`${homeRp} ±${homeRanking.relativeStandardError}%`);
-        } else
+        homeRp = homeTeam.getPredictorRankingPoints(date);
+        if (homeRp)
+            $('#predictor-home-rp').text(homeTeam.getPredictorPointsWithError(date));
+        else
             $('#predictor-home-rp').html('&nbsp;');
     }
 
     if (awayTeam) {
         $('#predictor-away-logo').attr('src',awayTeam.logo);
-        let awayRanking = ranking[awayTeam.teamId];
-        if (awayRanking && awayRanking.rankingPoints) {
-            awayRp = awayRanking.rankingPoints;
-            $('#predictor-away-rp').text(`${awayRp} ±${awayRanking.relativeStandardError}%`);
-        } else
+        awayRp = awayTeam.getPredictorRankingPoints(date);
+        if (awayRp)
+            $('#predictor-away-rp').text(awayTeam.getPredictorPointsWithError(date));
+        else
             $('#predictor-away-rp').html('&nbsp;');
     }
 
