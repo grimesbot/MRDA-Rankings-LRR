@@ -6,6 +6,8 @@ class TeamRanking:
         self.ranking_points = ranking_points
         self.standard_error = standard_error
         self.relative_standard_error = standard_error/ranking_points * 100 if ranking_points is not None and standard_error is not None else None
+        self.predictor_ranking_points = None
+        self.predictor_relative_error = None        
         self.wins = 0
         self.losses = 0
         self.forfeits = 0
@@ -23,6 +25,10 @@ class TeamRanking:
         if self.standard_error != other.standard_error:
             return False
         if self.relative_standard_error != other.relative_standard_error:
+            return False
+        if self.predictor_ranking_points != other.predictor_ranking_points:
+            return False
+        if self.predictor_relative_error != other.predictor_relative_error:
             return False
         if self.wins != other.wins:
             return False
@@ -60,6 +66,10 @@ class TeamRanking:
             result["se"] = round(self.standard_error * ranking_scale,2)
         if self.relative_standard_error is not None:
             result["rse"] = round(self.relative_standard_error, 2)
+        if self.predictor_ranking_points is not None:
+            result["prp"] = round(self.predictor_ranking_points * ranking_scale,2)
+        if self.predictor_relative_error is not None:
+            result["pre"] = round(self.predictor_relative_error, 2)            
         if self.wins > 0:
             result["w"] = self.wins
         if self.losses > 0:
