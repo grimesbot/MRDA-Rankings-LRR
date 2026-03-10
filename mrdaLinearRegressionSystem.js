@@ -4,6 +4,21 @@ const RATIO_CAP = 4;
 const ADHOC_POSTSEASON_CUTOFF = new Date(2026,7-1,31); // Special "Regular Season" end date for 2026 postseason by vote
 const ADHOC_POSTSEASON_START = new Date(2026,6-1,3); // Q2-2026 ranking deadline we're extending
 
+function getSeedDate(date) {
+    if (new Date().getFullYear() == ADHOC_POSTSEASON_CUTOFF.getFullYear() && ADHOC_POSTSEASON_START < date && date < ADHOC_POSTSEASON_CUTOFF)
+        return this.getSeedDate(ADHOC_POSTSEASON_START)
+
+    let seedDate = new Date(date);
+    seedDate.setDate(date.getDate() - 7 * 52);
+    // If seedDate is a greater # weekday of month than date, set seedDate back an additional week
+    // e.g. if date is 1st Wednesday of June, seedDate should be 1st Wednesday of June last year.
+    // date = Jun 7, 2028, 52 weeks prior would seedDate = Jun 9, 2027 which is 2nd Wednesday of June.
+    // set seedDate back an additional week seedDate = Jun 2, 2027 so games on weekend of Jun 4-6, 2027 count
+    if (Math.floor((seedDate.getDate() - 1) / 7) > Math.floor((date.getDate() - 1) / 7))
+        seedDate.setDate(seedDate.getDate() - 7);
+    return seedDate;
+}
+
 function ratioCapped(homeScore,awayScore) {
     homeScore = Math.max(homeScore, 0.1);
     awayScore = Math.max(awayScore, 0.1);       
@@ -246,10 +261,7 @@ class MrdaTeam {
         if (addWeek)
             date.setDate(date.getDate() + 7);
 
-        if (!seedDate) {
-            seedDate = new Date(date);
-            seedDate.setFullYear(seedDate.getFullYear() - 1);
-        }
+        seedDate = seedDate ?? getSeedDate(date);
 
         let latestRankingDt = [...this.rankingHistory.keys()].filter(dt => seedDate < dt && dt <= date)
             .sort((a, b) => b - a)[0];
@@ -260,37 +272,47 @@ class MrdaTeam {
             return null;
     }
 
-    getRankingPoints(date, addWeek=false, seedDate = null) {
-        let ranking = this.getRanking(date, addWeek, seedDate);
+    getRankingPoints(date, addWeek=false) {
+        let ranking = this.getRanking(date, addWeek);
         if (ranking)
             return ranking.rankingPoints;
         else
             return null;
     }
 
-    getRankingPointsWithStandardError(date, addWeek=false, seedDate = null) {
-        let ranking = this.getRanking(date, addWeek, seedDate);
-        if (ranking)
-            return `${ranking.rankingPoints} ±${ranking.relativeStandardError}%`;
-        else
-            return null;
-    }
-
-    getPredictorRankingPoints(date, seedDate = null) {
+    getPredictorRankingPoints(date) {
+        let seedDate = getSeedDate(date, true);        
         let ranking = this.getRanking(date, false, seedDate);
-        if (ranking)
-            return ranking.predictorRankingPoints ?? ranking.rankingPoints;
+        if (ranking) {
+            if (ranking.predictorRankingPoints)
+                return ranking.predictorRankingPoints;
+            
+            // Check the next ranking for Ranking Points to see if they've fallen off & return no value for predictor.
+            let nextRanking = this.getRanking(date, true, seedDate);
+            if (nextRanking && nextRanking.date > date && !nextRanking.rankingPoints)
+                    return null;
+
+            // If we don't have predictor ranking points, no new games this week so they're the same.
+            return ranking.rankingPoints;
+        }
         else
             return null;
     }
 
-    getPredictorPointsWithError(date, seedDate = null) {
+    getPredictorPointsWithError(date) {
+        let seedDate = getSeedDate(date, true);
         let ranking = this.getRanking(date, false, seedDate);
         if (ranking) {
             if (ranking.predictorRankingPoints)
                 return `${ranking.predictorRankingPoints} ±${ranking.predictorRelativeError}%`;
-            else
-                return `${ranking.rankingPoints} ±${ranking.relativeStandardError}%`;
+
+            // Check the next ranking for Ranking Points to see if they've fallen off & return no value for predictor.
+            let nextRanking = this.getRanking(date, true, seedDate);
+            if (nextRanking && nextRanking.date > date && !nextRanking.rankingPoints)
+                    return null;
+            
+            // If we don't have predictor ranking points, no new games this week so they're the same.
+            return `${ranking.rankingPoints} ±${ranking.relativeStandardError}%`;
         }
         return null;
     }
@@ -318,21 +340,6 @@ class MrdaLinearRegressionSystem {
         this.mrdaGames = mrda_games_json.map(game => new MrdaGame(game, this.mrdaTeams, this.mrdaEvents));
     }
 
-    getSeedDate(date) {
-        if (new Date().getFullYear() == ADHOC_POSTSEASON_CUTOFF.getFullYear() && ADHOC_POSTSEASON_START < date && date < ADHOC_POSTSEASON_CUTOFF)
-            return this.getSeedDate(ADHOC_POSTSEASON_START)
-
-        let seedDate = new Date(date);
-        seedDate.setDate(date.getDate() - 7 * 52);
-        // If seedDate is a greater # weekday of month than date, set seedDate back an additional week
-        // e.g. if date is 1st Wednesday of June, seedDate should be 1st Wednesday of June last year.
-        // date = Jun 7, 2028, 52 weeks prior would seedDate = Jun 9, 2027 which is 2nd Wednesday of June.
-        // set seedDate back an additional week seedDate = Jun 2, 2027 so games on weekend of Jun 4-6, 2027 count
-        if (Math.floor((seedDate.getDate() - 1) / 7) > Math.floor((date.getDate() - 1) / 7))
-            seedDate.setDate(seedDate.getDate() - 7);
-        return seedDate;
-    }
-
     // Gets next Ranking Period Deadline Date, which is the first Wednesday of March, June, September or December.
     getNextRankingPeriodDate(date) {
         let searchDt = new Date(date);
@@ -356,7 +363,7 @@ class MrdaLinearRegressionSystem {
     getRankingHistory(date, seedDt = null) {
         if (!date)
             return null;
-        seedDt = seedDt ?? this.getSeedDate(date);
+        seedDt = seedDt ?? getSeedDate(date);
         let latestRankingDts = [...this.mrdaRankingsHistory.keys()].filter(dt => seedDt < dt && dt <= date).sort((a,b) => b - a);
         if (latestRankingDts.length > 0)
             return this.mrdaRankingsHistory.get(latestRankingDts[0]);
