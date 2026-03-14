@@ -932,77 +932,83 @@ function setupUpsetGames() {
 }
 
 function setupMeanAbsoluteLogError() {
-    let tableData = [];
-
-    let quarterOpts = $('#date option').filter((i,e) => $(e).text().trim().startsWith('Q'));
-
-    for (let i = 0; i < (quarterOpts.length - 1); i++) {
-        let $quarterOpt = $(quarterOpts[i]);
-
-        tableData.push({
-            title: $quarterOpt.text(),
-            minDt: new Date(`${$(quarterOpts[i+1]).val()} 00:00:00`),
-            maxDt: new Date(`${$quarterOpt.val()} 00:00:00`)
-        });
-    }
-
-    tableData.push({
-        title: '2024 Season (Without Seed Data)',
-        minDt: new Date (2023, 10 - 1, 25),
-        maxDt: new Date (2024, 10 - 1, 23)
-    });
-
-    tableData.push({
-        title: '2025 Season',
-        minDt: new Date (2024, 10 - 1, 23),
-        maxDt: new Date (2025, 10 - 1, 22)
-    });
-
-    tableData.push({
-        title: '2026 Season',
-        minDt: new Date (2025, 10 - 1, 22),
-        maxDt: new Date (2026, 10 - 1, 28)
-    });
-
-    tableData.push({
-        title: '2025+ (All games with Seed Data)',
-        minDt: new Date (2024, 10 - 1, 23),
-        maxDt: null
-    });
-
-    tableData.push({
-        title: 'All Games',
-        minDt: null,
-        maxDt: null
-    });
-
-    let predictedGames = mrdaLinearRegressionSystem.mrdaGames.filter(game => game.absLogError != null);
-    for (const data of tableData) {
-        let games = predictedGames.filter(game => (data.minDt == null || data.minDt <= game.date) && (data.maxDt == null || game.date < data.maxDt));
-        data.gameCount = games.length;
-        if (data.gameCount > 0) {
-            let absLogErrSum = 0;
-            games.forEach(game => absLogErrSum += game.absLogError);
-            data.meal = Math.exp(absLogErrSum/data.gameCount) - 1;
-        } else {
-            data.meal = null;
-        }
-    }
-
-    new DataTable('#error-table', {
+    let errorTable = new DataTable('#error-table', {
         columns: [
-            { data: 'title'},
+            { data: 'title', width: '20em'},
             { title: 'Start Date', data: 'minDt', render: DataTable.render.date()},
             { title: 'End Date', data: 'maxDt', render: DataTable.render.date()},            
             { title: 'Game Count', data: 'gameCount'},
             { title: 'Error %', data: 'meal', render: function(data, type) {return data ? `${(data * 100).toFixed(2)}%` : ''; }}
         ],
-        data: tableData,
+        data: [],
         dom: 't',
         paging: false,
         searching: false,
         info: false,
         ordering: false
+    });
+
+    $('#error-modal').on('show.bs.modal', function () {
+        if (!errorTable.data().any()) {
+            let tableData = [];
+
+            let quarterOpts = $('#date option').filter((i,e) => $(e).text().trim().startsWith('Q'));
+
+            for (let i = 0; i < (quarterOpts.length - 1); i++) {
+                let $quarterOpt = $(quarterOpts[i]);
+
+                tableData.push({
+                    title: $quarterOpt.text(),
+                    minDt: new Date(`${$(quarterOpts[i+1]).val()} 00:00:00`),
+                    maxDt: new Date(`${$quarterOpt.val()} 00:00:00`)
+                });
+            }
+
+            tableData.push({
+                title: '2024 Season (Without Seed Data)',
+                minDt: new Date (2023, 10 - 1, 25),
+                maxDt: new Date (2024, 10 - 1, 23)
+            });
+
+            tableData.push({
+                title: '2025 Season',
+                minDt: new Date (2024, 10 - 1, 23),
+                maxDt: new Date (2025, 10 - 1, 22)
+            });
+
+            tableData.push({
+                title: '2026 Season',
+                minDt: new Date (2025, 10 - 1, 22),
+                maxDt: new Date (2026, 10 - 1, 28)
+            });
+
+            tableData.push({
+                title: '2025+ (All games with Seed Data)',
+                minDt: new Date (2024, 10 - 1, 23),
+                maxDt: null
+            });
+
+            tableData.push({
+                title: 'All Games',
+                minDt: null,
+                maxDt: null
+            });
+
+            let predictedGames = mrdaLinearRegressionSystem.mrdaGames.filter(game => game.absLogError != null);
+            for (const data of tableData) {
+                let games = predictedGames.filter(game => (data.minDt == null || data.minDt <= game.date) && (data.maxDt == null || game.date < data.maxDt));
+                data.gameCount = games.length;
+                if (data.gameCount > 0) {
+                    let absLogErrSum = 0;
+                    games.forEach(game => absLogErrSum += game.absLogError);
+                    data.meal = Math.exp(absLogErrSum/data.gameCount) - 1;
+                } else {
+                    data.meal = null;
+                }
+            }
+
+            errorTable.rows.add(tableData).draw();
+        }
     });
 }
 
