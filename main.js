@@ -129,6 +129,9 @@ function setupRankingChart(teams) {
             scales: {
                 x: {
                     type: 'time',
+                    time: {
+                        unit: 'month'
+                    },
                     min: rankingPeriodStartDt,
                     max: rankingPeriodDeadlineDt
                 }
@@ -490,6 +493,9 @@ function setupTeamDetails() {
                     scales: {
                         x: {
                             type: 'time',
+                            time: {
+                                unit: 'month'
+                            },                            
                             min: rankingPeriodStartDt,
                             max: rankingPeriodDeadlineDt
                         }
