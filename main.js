@@ -481,7 +481,7 @@ function setupTeamDetails() {
                         type: 'scatter',
                         label: 'Game Points (2023 Algorithm)',
                         data: [],
-                        pointRadius: 5,
+                        pointRadius: 6,
                     }, {
                         type: 'lineWithErrorBars',
                         label: 'Ranking Points ± Standard Error',
