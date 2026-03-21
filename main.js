@@ -342,7 +342,7 @@ function handleRegionChange() {
     $('#rankings-table').DataTable().clear().rows.add(teams).draw();
 }
 
-function setTeamChartRankingHistory(team, teamChart, minDate) {
+function setTeamChartRankingHistory(team, teamChart, minDate = rankingPeriodStartDt) {
     let minRankingDt = [...team.rankingHistory.keys()].sort((a, b) => a - b)[0];
     if (minDate < minRankingDt) {
         minDate = new Date(minRankingDt);
@@ -414,6 +414,56 @@ function setTeamChartRankingHistory(team, teamChart, minDate) {
     teamChart.options.scales.x.max = rankingPeriodDeadlineDt;
 }
 
+
+function setTeameErrorChart(team, teamErrorChart) {
+
+    teamErrorChart.data.datasets = [];
+
+    let games = team.gameHistory
+        .filter(game => rankingPeriodStartDt <= game.date && game.date < rankingPeriodDeadlineDt && !game.forfeit)
+        .sort((a, b) => a.date - b.date);
+
+    let seedingRp = team.getRankingPoints(rankingPeriodStartDt);
+    if (seedingRp) {
+        let error = (seedingRp/team.rankingPoints - 1) * 100;
+
+        teamErrorChart.data.datasets.push({
+            label: 'Error',
+            data: [{ 
+                x: 'Virtual Game',
+                y: error 
+            }],
+            borderColor: error > 0 ? 'rgb(54, 162, 235)' : 'rgb(255, 99, 132)',
+            backgroundColor: error > 0 ? 'rgb(54, 162, 235, .5)' : 'rgb(255, 99, 132, .5)',
+            borderWidth: 2,
+            borderRadius: 5,
+            barPercentage: .25,
+            });
+    }
+
+    games.forEach(game => {
+        let opponent = game.getOpponentTeam(team.teamId);
+        let teamRp = team.rankingPoints;
+        let opponentRp = opponent.rankingPoints;
+        let expectedRatio = teamRp / opponentRp; 
+        let actualRatio = game.scores[team.teamId] / game.scores[opponent.teamId];
+        let error = (actualRatio/expectedRatio - 1) * 100;
+
+        teamErrorChart.data.datasets.push({
+                label: "Error",
+                data: [ { 
+                    x: `${game.date.toLocaleDateString(undefined, {year:'2-digit',month:'numeric',day:'numeric'})} ${game.date.toLocaleTimeString(undefined,{timeStyle:'short'})}`, 
+                    y: error, 
+                    game: game } ],
+                borderColor: error > 0 ? 'rgb(54, 162, 235)' : 'rgb(255, 99, 132)',
+                backgroundColor: error > 0 ? 'rgb(54, 162, 235, .5)' : 'rgb(255, 99, 132, .5)',
+                borderWidth: 2,
+                borderRadius: 5,
+                barPercentage: game.weight,
+                });
+    });
+}
+
 function setupTeamDetails() {
     let $teamDetailModal = $('#team-modal');
     let $olderGamesBtn = $('#load-older-games');
@@ -465,6 +515,101 @@ function setupTeamDetails() {
                     maintainAspectRatio: false
                 }
             });
+
+    // Initialize the Linear Regression Error chart. Data will be set on team row click.
+    let teamErrorChart = new Chart(document.getElementById('team-error-chart'), {
+        type: 'bar',
+        options: { 
+            scales: {
+                x: {
+                    stacked: true,
+                    ticks: {
+                        callback: function(value) { 
+                            let label = this.getLabelForValue(value);
+                            if (value > 0)
+                                return label.split(' ')[0];
+                            return label;
+                         }
+                    },
+                },
+                y: {
+                    stacked: true,
+                    ticks: {
+                        callback: function(value) { 
+                            return value > 0 ? `+${value}%` : `${value}%`;
+                         }
+                    },
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Difference in Actual vs. Expected Score Ratios based on current Ranking Points',
+                    padding: {
+                        top:10,
+                        bottom: 5
+                    }                    
+                },
+                subtitle: {
+                    display: true,
+                    text: 'Ranking Points are calculated using linear regression to minimize error for all games and all teams.',
+                    padding: {
+                        bottom: 8
+                    }
+                },
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    position: 'nearest',
+                    bodySpacing: 3,
+                    callbacks: {
+                        title: function(context) {
+                            if (context[0].datasetIndex == 0)
+                                return [
+                                    `${rankingPeriodStartDt.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}: ${context[0].label}`,
+                                    `${team.getRankingPoints(rankingPeriodStartDt).toFixed(2)}-${mrda_config.virtual_team_rp} vs Virtual Team`
+                                ];
+                            return [
+                                context[0].raw.game.getGameAndEventTitle(),
+                                context[0].raw.game.getGameSummary(team.teamId)
+                            ];
+                        },
+                        beforeBody: function(context) {
+                            if (context[0].datasetIndex == 0) {
+                                let expectedRatio = team.rankingPoints / mrda_config.virtual_team_rp;
+                                let actualRatio = team.getRankingPoints(rankingPeriodStartDt) / mrda_config.virtual_team_rp; 
+                                return [
+                                    `Opponent's Current RP: ${mrda_config.virtual_team_rp}`,
+                                    `Expected Ratio: ${expectedRatio.toFixed(2)} : 1`,
+                                    `Score Ratio: ${actualRatio.toFixed(2)} : 1`,
+                                ];
+                            }
+                            let game = context[0].raw.game;
+                            let opponent = game.getOpponentTeam(team.teamId);
+                            let expectedRatio = team.rankingPoints / opponent.rankingPoints;
+                            let actualRatio = game.scores[team.teamId] / game.scores[opponent.teamId]; 
+                            return [
+                                `Opponent's Current RP: ${opponent.rankingPoints}`,
+                                `Expected Ratio: ${expectedRatio.toFixed(2)} : 1`,
+                                `Score Ratio: ${actualRatio.toFixed(2)} : 1`,
+                            ];
+                        },
+                        label: function(context) {
+                            return ` Error: ${context.raw.y > 0 ? '+' : ''}${context.raw.y.toFixed(2)}%`;
+                        },
+                        footer: function(context) {
+                            if (context[0].datasetIndex == 0)
+                                return 'Game Weight: 25%';
+                            return `Game Weight: ${(context[0].raw.game.weight * 100).toFixed(0)}%`;
+                        }
+                    }
+                }
+            },
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
 
     // Initialize the team game history DataTable. Data will be set on team row click.
     let teamGameTable = new DataTable('#team-games-table', {
@@ -568,8 +713,11 @@ function setupTeamDetails() {
                 title: game.getGameAndEventTitle(),
                 label: `${game.getGameSummary(team.teamId)}: ${game.gamePoints[team.teamId].toFixed(2)}`
             }});
-        setTeamChartRankingHistory(team, teamChart, rankingPeriodStartDt);
+        setTeamChartRankingHistory(team, teamChart);
         teamChart.update();
+
+        setTeameErrorChart(team, teamErrorChart);
+        teamErrorChart.update();
 
         // Game table data filtered to current ranking period.
         teamGameTable.clear().rows.add(team.gameHistory.filter(game => minGameDt <= game.date && game.date < rankingPeriodDeadlineDt)).draw();
@@ -1026,7 +1174,7 @@ $(function() {
     $dateSelect.on('change', handleRankingPeriodChange);
     $regionSelect.on('change', handleRegionChange);
         
-    $('#rankings-generated-dt').text(new Date(rankings_generated_utc).toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'long'}));
+    $('#rankings-generated-dt').text(new Date(mrda_config.rankings_generated_utc).toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'long'}));
 
     $('[data-toggle="tooltip"]').tooltip();
 

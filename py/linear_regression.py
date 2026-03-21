@@ -8,7 +8,7 @@ from mrda_data import mrda_teams, mrda_events, mrda_games, github_actions_run, w
 from team_ranking import TeamRanking
 
 # Constants
-RANKING_SCALE = 100 # add scale since we are not using seeds here
+RP_SCALE = 100 # add scale since we are not using seeds here
 RATIO_CAP = 4
 POSTSEASON_EVENT_NAMES = ["Western Hemisphere Cup", "Qualifiers", "Mens Roller Derby Association Championships"]
 START_DATE = date(2023,10,25) # Start calculations from first Wednesday after WHC 2023
@@ -260,7 +260,7 @@ def get_rankings(calc_date):
         print("Rankings for " + calc_date.strftime("%Y-%m-%d"))
         for item in sorted(print_result.items(), key=lambda item: (item[1].rank if item[1].rank is not None else len(print_result), -item[1].ranking_points if item[1].ranking_points is not None else 0)):
             tr = item[1]
-            print(f"{tr.rank if tr.rank is not None else "NR"}\t{str(round(tr.ranking_points * RANKING_SCALE, 2)) if tr.ranking_points is not None else "No RP"}\t{tr.mrda_team.name}")
+            print(f"{tr.rank if tr.rank is not None else "NR"}\t{str(round(tr.ranking_points * RP_SCALE, 2)) if tr.ranking_points is not None else "No RP"}\t{tr.mrda_team.name}")
         print("")
         
     return team_rankings
@@ -290,10 +290,17 @@ while (ranking_date <= next_ranking_deadline):
 
 print("Completed " + str(calc_count) + " ranking calculations in " + str(round(time.perf_counter() - start_time, 2)) + " seconds.")
 
+mrda_config = {
+    "rankings_generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+    "virtual_team_rp": RP_SCALE
+    }
+write_json_to_file(mrda_config, "mrda_config.js", "mrda_config")
+write_json_to_file(mrda_config, "mrda_config.json")
+
 # Format dates to Y-m-d and team rankings to formatted dict
-rankings_history_dicts = {'{d.year}-{d.month}-{d.day}'.format(d=dt): {team_id: tr.to_dict(RANKING_SCALE) for team_id, tr in team_rankings.items()} for dt, team_rankings in rankings_history.items()}
+rankings_history_dicts = {'{d.year}-{d.month}-{d.day}'.format(d=dt): {team_id: tr.to_dict(RP_SCALE) for team_id, tr in team_rankings.items()} for dt, team_rankings in rankings_history.items()}
 # Save rankings JSON to JavaScript file as rankings_history variable for local web UI
-write_json_to_file(rankings_history_dicts, "mrda_rankings_history.js", "rankings_history", "rankings_generated_utc")
+write_json_to_file(rankings_history_dicts, "mrda_rankings_history.js", "rankings_history")
 # Save rankings JSON file for external use
 write_json_to_file(rankings_history_dicts, "mrda_rankings_history.json")
 print("Rankings updated and saved to mrda_rankings_history.js and mrda_rankings_history.json")

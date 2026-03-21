@@ -58,16 +58,16 @@ class TeamRanking:
         self.rank = None
         self.region_rank = None        
 
-    def to_dict(self, ranking_scale):
+    def to_dict(self, rp_scale):
         result = {}
         if self.ranking_points is not None:
-            result["rp"] = round(self.ranking_points * ranking_scale,2)
+            result["rp"] = round(self.ranking_points * rp_scale,2)
         if self.standard_error is not None:
-            result["se"] = round(self.standard_error * ranking_scale,2)
+            result["se"] = round(self.standard_error * rp_scale,2)
         if self.relative_standard_error is not None:
             result["rse"] = round(self.relative_standard_error, 2)
         if self.predictor_ranking_points is not None:
-            result["prp"] = round(self.predictor_ranking_points * ranking_scale,2)
+            result["prp"] = round(self.predictor_ranking_points * rp_scale,2)
         if self.predictor_relative_error is not None:
             result["pre"] = round(self.predictor_relative_error, 2)            
         if self.wins > 0:
@@ -86,4 +86,4 @@ class TeamRanking:
             result["r"] = self.rank
         if self.region_rank is not None:
             result["rr"] = self.region_rank            
-        return result        
+        return result
