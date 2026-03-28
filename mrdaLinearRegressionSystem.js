@@ -1,8 +1,9 @@
 const REGIONS = ['EUR', 'AA', 'AM'];
-const RATIO_CAP = 4;
 
 const ADHOC_POSTSEASON_CUTOFF = new Date(2026,7-1,31); // Special "Regular Season" end date for 2026 postseason by vote
 const ADHOC_POSTSEASON_START = new Date(2026,6-1,3); // Q2-2026 ranking deadline we're extending
+
+const VIRTUAL_TEAM_ID = '0000a';
 
 function getSeedDate(date) {
     if (new Date().getFullYear() == ADHOC_POSTSEASON_CUTOFF.getFullYear() && ADHOC_POSTSEASON_START < date && date < ADHOC_POSTSEASON_CUTOFF)
@@ -19,74 +20,47 @@ function getSeedDate(date) {
     return seedDate;
 }
 
-function ratioCapped(homeScore,awayScore) {
-    homeScore = Math.max(homeScore, 0.1);
-    awayScore = Math.max(awayScore, 0.1);       
-    return Math.max(Math.min(homeScore/awayScore,RATIO_CAP),1/RATIO_CAP);
-}
-
 class MrdaGame {
     constructor(game, mrdaTeams, mrdaEvents, virtualGame = false) {
         this.date = game.date instanceof Date ? game.date : new Date(game.date);
         this.homeTeamId = game.home_team;
-        this.awayTeamId = game.away_team;
         this.scores = {};
         if('home_score' in game)
             this.scores[this.homeTeamId] = game.home_score;
-        if('away_score' in game)
-            this.scores[this.awayTeamId] = game.away_score;
-        this.forfeit = game.forfeit;
-        this.forfeitTeamId = game.forfeit_team_id;
-        this.eventId = game.event_id;
-        this.status = game.status;
-        this.weight = game.weight;
-        this.actualRatios = {};
-        this.expectedRatios = {};
-        this.gamePoints = {};
-        this.absLogError = null;
-
-        this.homeTeam = mrdaTeams[this.homeTeamId];
-        this.awayTeam = mrdaTeams[this.awayTeamId];
-
-        this.event = mrdaEvents[this.eventId];
-
+        
         if (virtualGame) {
-            this.awayTeam = new MrdaTeam(null, { name: 'Virtual Team' });
+            this.awayTeamId = VIRTUAL_TEAM_ID;
+            this.scores[VIRTUAL_TEAM_ID] =  mrda_config.virtual_team_rp;
             this.eventId = null;
             this.event = new MrdaEvent(null, {start_dt: this.date, name: 'Virtual Games'});
-            return;
-        }
-
-        // Calculate expected ratios for all games (including forfeits and upcoming games without scores)
-        let homeRankingPoints = this.homeTeam.getPredictorRankingPoints(this.date);
-        let awayRankingPoints = this.awayTeam.getPredictorRankingPoints(this.date);
-        if (homeRankingPoints && awayRankingPoints) {
-            this.expectedRatios[this.homeTeamId] = homeRankingPoints/awayRankingPoints;
-            this.expectedRatios[this.awayTeamId] = awayRankingPoints/homeRankingPoints;
+            this.weight = .25;
+            this.awayTeam = new MrdaTeam(VIRTUAL_TEAM_ID, { name: 'Virtual Team'});
+            this.awayTeam.rankingPoints = mrda_config.virtual_team_rp;
+        } else {
+            this.awayTeamId = game.away_team;
+            if('away_score' in game)
+                this.scores[this.awayTeamId] = game.away_score;
+            this.eventId = game.event_id;
+            this.event = mrdaEvents[this.eventId];
+            this.weight = game.weight;
+            this.awayTeam = mrdaTeams[this.awayTeamId];            
         }
         
-        // Done here if we don't have scores (upcoming games)
-        if (!(this.homeTeamId in this.scores) || !(this.awayTeamId in this.scores))
-            return;
+        this.forfeit = game.forfeit;
+        this.forfeitTeamId = game.forfeit_team_id;
+        this.status = game.status;
+        this.actualRatios = {};
+        this.predictorRankingPoints = {};
+        this.predictedRatios = {};
+        this.performanceDeltas = {};
 
-        if (!this.forfeit) {
-            this.actualRatios[this.homeTeamId] = this.scores[this.homeTeamId]/this.scores[this.awayTeamId];
-            this.actualRatios[this.awayTeamId] = this.scores[this.awayTeamId]/this.scores[this.homeTeamId];
-            if (homeRankingPoints && awayRankingPoints) {
-                this.gamePoints[this.homeTeamId] = homeRankingPoints * ratioCapped(this.scores[this.homeTeamId],this.scores[this.awayTeamId])/ratioCapped(homeRankingPoints,awayRankingPoints);
-                this.gamePoints[this.awayTeamId] = awayRankingPoints * ratioCapped(this.scores[this.awayTeamId],this.scores[this.homeTeamId])/ratioCapped(awayRankingPoints,homeRankingPoints);
-                this.absLogError = Math.abs(Math.log(this.expectedRatios[this.homeTeamId]/this.actualRatios[this.homeTeamId]));
-            } else if ((homeRankingPoints || awayRankingPoints) && this.actualRatios[this.homeTeamId] < RATIO_CAP && this.actualRatios[this.awayTeamId] < RATIO_CAP) {
-                // Calculate game points for new team as seeding games for visualization
-                let newTeamId = homeRankingPoints ? this.awayTeamId : this.homeTeamId;
-                let establishedTeamId = homeRankingPoints ? this.homeTeamId : this.awayTeamId;
-                let establishedTeamRp = homeRankingPoints ? homeRankingPoints : awayRankingPoints;
-                this.gamePoints[newTeamId] = establishedTeamRp * ratioCapped(this.scores[newTeamId],this.scores[establishedTeamId]);
-            }
+        this.homeTeam = mrdaTeams[this.homeTeamId];
+
+        // Add scored games (not upcoming games) to teams' Game History
+        if (this.homeTeamId in this.scores && this.awayTeamId in this.scores && !virtualGame) {
+            this.homeTeam.gameHistory.push(this);
+            this.awayTeam.gameHistory.push(this);
         }
-
-        this.homeTeam.gameHistory.push(this);
-        this.awayTeam.gameHistory.push(this);
     }
 
     getOpponentTeamId(teamId) {
@@ -103,6 +77,159 @@ class MrdaGame {
 
     getAtVs(teamId) {
         return this.homeTeamId == teamId ? 'vs' : '@'
+    }
+
+    getActualRatio(team) {
+        if (team.teamId in this.actualRatios)
+            return this.actualRatios[team.teamId];
+
+        if (!(this.homeTeamId in this.scores) || !(this.awayTeamId in this.scores) || this.forfeit)
+            this.actualRatios[team.teamId] = null;
+        else
+            this.actualRatios[team.teamId] = this.scores[team.teamId]/this.scores[this.getOpponentTeamId(team.teamId)];
+        return this.actualRatios[team.teamId];
+    }
+
+    getActualRatioDisplay(team) {
+        let actualRatio = this.getActualRatio(team);
+        if (actualRatio == null)
+            return null;
+        return actualRatio.toFixed(2);
+    }
+
+    getActualRatioDisplayWithTooltip(team) {
+        let actualRatio = this.getActualRatio(team);
+        if (actualRatio == null)
+            return null;
+        let result = actualRatio.toFixed(2);
+        if (actualRatio > mrda_config.ratio_cap || actualRatio < 1/mrda_config.ratio_cap) {
+            let weight = (this.weight * 100).toFixed(0);
+            let tooltip = `Games with score ratios beyond ${mrda_config.ratio_cap}:1 have diminishing weights in the linear regression algorithm`;
+            return `<span data-toggle="tooltip" data-bs-html="true" title="Weight: ${weight}%<br>${tooltip}">${result}*</span>`;
+        }
+        return result;
+    }
+
+    getPredictorRankingPoints(team) {
+        if (team.teamId in this.predictorRankingPoints)
+            return this.predictorRankingPoints[team.teamId];
+
+        this.predictorRankingPoints[team.teamId] = team.getPredictorRankingPoints(this.date);
+        return this.predictorRankingPoints[team.teamId];
+    }
+
+    getPredictedRatio(team) {
+        if (team.teamId in this.predictedRatios)
+            return this.predictedRatios[team.teamId];
+
+        let opponent = this.getOpponentTeam(team.teamId);
+        let teamRp = this.getPredictorRankingPoints(team);
+        let opponentRp = this.getPredictorRankingPoints(opponent);
+        if (teamRp == null || opponentRp == null)
+            this.predictedRatios[team.teamId] = null;
+        else 
+            this.predictedRatios[team.teamId] = teamRp/opponentRp;
+
+        return this.predictedRatios[team.teamId];
+    }
+
+    getPredictedRatioDisplay(team) {
+        if (team !== undefined) {
+            let predictedRatio = this.getPredictedRatio(team);
+            if (predictedRatio == null)
+                return null;
+            return predictedRatio.toFixed(2);
+        }
+
+        let predictedRatio = this.getPredictedRatio(this.homeTeam);
+
+        if (predictedRatio == null)
+            return null;
+
+        if (predictedRatio > 1)
+            return `${predictedRatio.toFixed(2)} : 1`;
+
+        predictedRatio = this.getPredictedRatio(this.awayTeam);
+        return `1 : ${predictedRatio.toFixed(2)}`;
+    }
+
+    getPredictedRatioWithTooltip(team) {
+        let result = this.getPredictedRatioDisplay(team);
+        if (result == null)
+            return null;
+
+        let ranking = team.getRanking(this.date);
+        let opponent = this.getOpponentTeam(team.teamId);
+        let teamRp = this.getPredictorRankingPoints(team);
+        let opponentRp = this.getPredictorRankingPoints(opponent);
+
+        let tooltip = `Predicted ratio based on Ranking Points as of ${ranking.date.toLocaleDateString(undefined, {year:'2-digit',month:'numeric',day:'numeric'})}:<br>`;
+        tooltip += `This Team: ${teamRp.toFixed(2)}<br>`;
+        tooltip += `Opponent: ${opponentRp.toFixed(2)}<br>`;
+
+        return `<span data-toggle="tooltip" data-bs-html="true" title="${tooltip}">${result}</span>`;
+    }
+
+    getPerformanceDelta(team) {
+        if (team.teamId in this.performanceDeltas)
+            return this.performanceDeltas[team.teamId];
+
+        let predictedRatio = this.getPredictedRatio(team);
+        let actualRatio = this.getActualRatio(team);
+
+        if (predictedRatio == null || actualRatio == null)
+            this.performanceDeltas[team.teamId] = null;
+        else
+            this.performanceDeltas[team.teamId] = actualRatio/predictedRatio;
+
+        return this.performanceDeltas[team.teamId];
+    }
+
+    getPerformanceDeltaPct(team)
+    {
+        let performanceDelta = this.getPerformanceDelta(team);
+        if (performanceDelta == null)
+            return null;
+        let performanceDeltaPct = (performanceDelta - 1) * 100;
+        if (performanceDeltaPct > 0)
+            return `+${performanceDeltaPct.toFixed(2)}%`;
+        return `${performanceDeltaPct.toFixed(2)}%`;
+    }
+
+    getPerformanceDeltaDisplay(team, round = 2)
+    {
+        let performanceDelta = this.getPerformanceDelta(team);
+        if (performanceDelta == null)
+            return null;
+        let performanceDeltaPct = (performanceDelta - 1) * 100;
+        let result = performanceDeltaPct.toFixed(round);
+        if (performanceDeltaPct > 0) {
+            let icon = '<i class="bi bi-triangle-fill text-success"></i>';
+            return `${icon} <span class="performance-delta text-success">+${result}%</span>`;
+        } else if (performanceDeltaPct < 0) {
+            let icon = '<i class="bi bi-triangle-fill down text-danger"></i>';
+            return `${icon} <span class="performance-delta text-danger">${result}%</span>`;
+        }
+        return `<span class="performance-delta">${result}%</span>`;
+    }
+
+    getPerformanceDeltaChart(team)
+    {
+        let performanceDelta = this.getPerformanceDelta(team);
+        if (performanceDelta == null)
+        {
+            let actualRatio = this.getActualRatio(team);
+            if (actualRatio == null)
+                return null;
+
+            let opponentRp = this.getPredictorRankingPoints(this.getOpponentTeam(team.teamId));
+            if (opponentRp == null)
+                return null;
+
+            // Calculate for new team as seeding game for visualization
+            return opponentRp * actualRatio;
+        }
+        return this.getPredictorRankingPoints(team) * performanceDelta;
     }
 
     getTeamsScore(teamId) {
@@ -270,6 +397,24 @@ class MrdaTeam {
             return this.rankingHistory.get(latestRankingDt);
         else
             return null;
+    }
+
+    getNameWithRank(date, region) {
+        let result = `<span class="team-name">${this.name}</span>`;
+        let teamRanking = this.getRanking(date);
+        if (teamRanking != null && teamRanking.rank) {
+            let rankType;
+            let rank;
+            if (region == 'GUR') {
+                rankType = 'Global';
+                rank = teamRanking.rank;
+            } else {
+                rankType = 'Regional';
+                rank = teamRanking.regionRank;
+            }
+            result = `<span class="team-rank" data-toggle="tooltip" title="${rankType} rank as of ${teamRanking.date.toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'})}">${rank}</span> ${result}`;
+        }
+        return result;
     }
 
     getRankingPoints(date, addWeek=false) {

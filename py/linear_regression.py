@@ -292,7 +292,8 @@ print("Completed " + str(calc_count) + " ranking calculations in " + str(round(t
 
 mrda_config = {
     "rankings_generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-    "virtual_team_rp": RP_SCALE
+    "virtual_team_rp": RP_SCALE,
+    "ratio_cap": RATIO_CAP
     }
 write_json_to_file(mrda_config, "mrda_config.js", "mrda_config")
 write_json_to_file(mrda_config, "mrda_config.json")
