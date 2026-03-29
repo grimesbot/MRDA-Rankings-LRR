@@ -299,16 +299,6 @@ function setupRankingsTable(teams) {
     });
 }
 
-function setupRankings() {
-    mrdaRankings.rankTeams(rankingPeriodDeadlineDt, rankingPeriodStartDt, previousQuarterDt);
-
-    let teams = mrdaRankings.getOrderedTeams(region);
-
-    setupRankingChart(teams);
-
-    setupRankingsTable(teams);
-}
-
 function handleRankingPeriodChange() {
     // Move the chart to new dates
     let rankingChart = Chart.getChart('rankings-chart');
@@ -354,7 +344,14 @@ $(function() {
     let $regionSelect = $('#region');
     setupRegion($regionSelect);
 
-    setupRankings();
+    // Rank teams
+    mrdaRankings.rankTeams(rankingPeriodDeadlineDt, rankingPeriodStartDt, previousQuarterDt);
+    let teams = mrdaRankings.getOrderedTeams(region);
+    
+    // Setup Rankings
+    setupRankingChart(teams);
+    setupRankingsTable(teams);
+
     $dateSelect.on('change', handleRankingPeriodChange);
     $regionSelect.on('change', handleRegionChange);
         

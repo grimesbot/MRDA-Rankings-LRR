@@ -3,6 +3,8 @@ from flask_cors import CORS
 import statsmodels.api as sm
 import math
 
+RATIO_CAP = 4
+
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": [
     "http://localhost",
@@ -11,10 +13,7 @@ CORS(app, resources={r"/*": {"origins": [
     "https://grimesbot.github.io"
 ]}})
 
-RATIO_CAP = 4
-RANKING_SCALE = 100
-
-def linear_regression_ratio(games, seeding, bugfix=True):
+def linear_regression_ratio(games, seeding):
     result = {}
 
     team_ids = []
@@ -56,10 +55,7 @@ def linear_regression_ratio(games, seeding, bugfix=True):
         score_ratio = home_score/away_score if home_score > away_score else away_score/home_score
 
         # Set game weight
-        if bugfix:
-            W.append(max(2 * score_ratio ** (-1/2), 1/1000000) if score_ratio > RATIO_CAP else 1)
-        else:
-            W.append(max(3 ** ((RATIO_CAP - score_ratio)/2), 1/1000000) if score_ratio > RATIO_CAP else 1)
+        W.append(max(2 * score_ratio ** (-1/2), 1/1000000) if score_ratio > RATIO_CAP else 1)
 
     # Add virtual games if we have seeding
     if seeding is not None:
@@ -70,7 +66,7 @@ def linear_regression_ratio(games, seeding, bugfix=True):
 
                 # Add observation as score log ratio
                 # Virtual team's RP is 1.00. Result of virtual game is team's seeding (RP) to 1.
-                Y.append(math.log(seeding[team_id]/RANKING_SCALE))
+                Y.append(math.log(seeding[team_id]))
 
                 # Build x column of regressors (teams), real team is home team (1), no away team (-1) since it was virtual team
                 x_col = []
@@ -101,8 +97,8 @@ def predict_game_lrr():
 
     lr_result = linear_regression_ratio(games, seeding)
 
-    home_rp = lr_result[home_team] * RANKING_SCALE
-    away_rp = lr_result[away_team] * RANKING_SCALE
+    home_rp = lr_result[home_team]
+    away_rp = lr_result[away_team]
 
     ratios = []
 
@@ -120,12 +116,12 @@ def predict_game_lrr():
         mock_game = {"th": home_team, "sh": ratio, "ta": away_team, "sa": 1}
         games.append(mock_game)
         lr_result = linear_regression_ratio(games, seeding)
-        new_home_rp = lr_result[home_team] * RANKING_SCALE
-        new_away_rp = lr_result[away_team] * RANKING_SCALE
+        new_home_rp = lr_result[home_team]
+        new_away_rp = lr_result[away_team]
         result.append({
             "r": ratio,
-            "dh": round(new_home_rp - home_rp, 2),
-            "da": round(new_away_rp - away_rp, 2)
+            "dh": round(new_home_rp/home_rp - 1, 4),
+            "da": round(new_away_rp/away_rp - 1, 4)
             })
         games.remove(mock_game)
 
