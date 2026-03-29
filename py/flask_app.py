@@ -3,8 +3,6 @@ from flask_cors import CORS
 import statsmodels.api as sm
 import math
 
-RATIO_CAP = 4
-
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": [
     "http://localhost",
@@ -12,6 +10,8 @@ CORS(app, resources={r"/*": {"origins": [
     "null",
     "https://grimesbot.github.io"
 ]}})
+
+RATIO_CAP = 4
 
 def linear_regression_ratio(games, seeding):
     result = {}
