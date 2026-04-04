@@ -79,13 +79,20 @@ table.table.dataTable.table-striped>tbody>tr:nth-of-type(2n+1)>* {
     box-shadow: inset 0 0 0 9999px rgba(var(--dt-row-stripe), 0.025) !important;
 }
 
-#postseason-legend {
+#matchup-history-table .outside-ranking-period td,
+div.outside-ranking-period {
+    background-color: rgba(0,0,0, 0.11) !important;    
+}
+
+#postseason-legend,
+div.outside-ranking-period {
     font-size:.8em;
     margin-top: .25em;
 }
 
 /* Postseason Position legend */
-div.postseason-position {
+div.postseason-position,
+div.outside-ranking-period {
     margin-top:.25em;
     padding:.25em;
     border-radius: 5px;
@@ -156,12 +163,33 @@ td.delta i.down,
 }
 
 #rankings-table td:not(.no-pointer),
-#upcoming-games-table td:not(.dtrg-group) {
+#upcoming-games-table td:not(.dtrg-group),
+#upsets-table td,
+#team-games-table .opponent-logo,
+#results-table .team-logo,
+#matchup-history-table .team-logo,
+#new-games-table .team-logo {
     cursor: pointer;
 }
 
 #rankings-table tbody tr:hover .team-name,
-#upcoming-games-table tbody tr:hover .team-name {
+#upcoming-games-table tbody tr:hover .team-name,
+#upsets-table tbody tr:hover .team-name,
+#team-games-table tr:has(.opponent-logo:hover) .team-name,
+#results-table tr:has(.home.team-logo:hover) .home .team-name,
+#results-table tr:has(.away.team-logo:hover) .away .team-name,
+#matchup-history-table tr:has(.home.team-logo:hover) .home .team-name,
+#matchup-history-table tr:has(.away.team-logo:hover) .away .team-name,
+#new-games-table tr:has(.home.team-logo:hover) .home .team-name,
+#new-games-table tr:has(.away.team-logo:hover) .away .team-name {
+    text-decoration: underline;
+}
+
+#team-games-table .team-name:hover,
+#results-table .team-name:hover,
+#new-games-table .team-name:hover,
+#matchup-history-table .team-name:hover{
+    cursor: pointer;
     text-decoration: underline;
 }
 
@@ -238,12 +266,17 @@ td.delta i.down,
 }
 
 /* Predictor */
-.predictor-result label {
+.predictor-result label,
+.matchup-history-result label {
     font-weight: bold;
 }
 
 .predictor-logo {
     height: 5em;
+}
+
+.matchup-history-logo {
+    height: 3em;
 }
 
 #predictor-chart-container .loading-overlay {

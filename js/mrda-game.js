@@ -27,7 +27,7 @@ class MrdaGame {
         }
         
         this.forfeit = game.forfeit;
-        this.forfeitTeamId = game.forfeit_team_id;
+        this.forfeitTeamId = game.forfeit_team;
         this.status = game.status;
         this.actualRatios = {};
         this.predictorRankingPoints = {};
@@ -180,7 +180,7 @@ class MrdaGame {
     {
         let performanceDelta = this.getPerformanceDelta(team);
         if (performanceDelta == null)
-            return null;
+            return '';
         let performanceDeltaPct = (performanceDelta - 1) * 100;
         let result = performanceDeltaPct.toFixed(round);
         if (performanceDeltaPct > 0) {

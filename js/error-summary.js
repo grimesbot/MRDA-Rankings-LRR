@@ -1,12 +1,12 @@
 // Setup error sumamry modal
-$(function() {
+$(() => {
     let errorTable = new DataTable('#error-table', {
         columns: [
             { data: 'title', width: '20em'},
             { title: 'Start Date', data: 'minDt', render: DataTable.render.date()},
             { title: 'End Date', data: 'maxDt', render: DataTable.render.date()},            
             { title: 'Game Count', data: 'gameCount'},
-            { title: 'Error %', data: 'meal', render: function(data, type) {return data ? `${(data * 100).toFixed(2)}%` : ''; }}
+            { title: 'Error %', data: 'meal', render: (data, type) => {return data ? `${(data * 100).toFixed(2)}%` : ''; }}
         ],
         data: [],
         dom: 't',
@@ -16,7 +16,7 @@ $(function() {
         ordering: false
     });
 
-    $('#error-modal').on('show.bs.modal', function () {
+    $('#error-modal').on('show.bs.modal', () => {
         if (!errorTable.data().any()) {
             let tableData = [];
 
