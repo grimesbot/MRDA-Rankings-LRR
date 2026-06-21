@@ -1,1 +1,1 @@
-const mrda_config = {"rankings_generated_utc": "2026-06-21T19:51:19.585092Z", "virtual_team_rp": 100, "ratio_cap": 4}
+const mrda_config = {"rankings_generated_utc": "2026-06-21T21:20:19.528379Z", "virtual_team_rp": 100, "ratio_cap": 4}
