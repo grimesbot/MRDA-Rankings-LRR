@@ -21,9 +21,9 @@ $(() => {
             { name: 'score', width: '7em', className: 'dt-center', title: 'Score', 
                 render: (data, type, game) => {
                     if (type === 'sort')
-                        return Math.max(game.scores[game.homeTeamId], game.scores[game.awayTeamId])/Math.min(game.scores[game.homeTeamId], game.scores[game.awayTeamId]);
+                        return Math.max(game.scores[game.homeTeamId], game.scores[game.awayTeamId])/Math.max(Math.min(game.scores[game.homeTeamId], game.scores[game.awayTeamId]), 1);
                     return `${game.scores[game.homeTeamId]} - ${game.scores[game.awayTeamId]}`;
-                } 
+                }
             },
             { name: 'awayLogo', width: '1em', render: (data, type, game) => { return game.awayTeam.getLogoDisplay(false, 'ms-2'); } },
             { data: 'awayTeam.name', 
@@ -59,7 +59,7 @@ $(() => {
     $('#upsets-modal').on('show.bs.modal', () => {
         let upsetGames = mrdaRankings.mrdaGames
             .filter(game => rankingPeriodStartDt <= game.date && game.date < rankingPeriodDeadlineDt
-                && game.homeTeamId in game.scores && game.awayTeamId in game.scores && !game.forfeit
+                && game.homeTeamId in game.scores && game.awayTeamId in game.scores && !game.forfeit && game.status != 9
                 && game.homeTeam.rank && game.awayTeam.rank
                 && (region == "GUR" || game.homeTeam.region == region && game.awayTeam.region == region)
                 && ((game.scores[game.homeTeamId] > game.scores[game.awayTeamId] && game.homeTeam.rank > game.awayTeam.rank)

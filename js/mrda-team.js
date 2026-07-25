@@ -39,7 +39,8 @@ class MrdaTeam {
         this.rankingPoints = 0;
         this.relStdErr = 0;
         this.rank = null;
-        this.regionRank = null;        
+        this.regionRank = null;
+        this.regionRankSort = null;        
         this.rankSort = null;
         this.delta = null;
         this.regionDelta = null;        
